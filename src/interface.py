@@ -1,4 +1,19 @@
 #!/usr/bin/env python
+'''
+############### NLR: AR.Drone Keyboard Interface ###############
+
+Filename:       interface.py
+Description:    This interface is a control interface for the AR.Drone 1/2.
+                It depends on the ardrone_autonomy driver, which contains
+                the AR.Drone SDK and implements the basic communication. This
+                interface can be used to fly the AR.Drone
+By:             Camiel Verschoor
+Created:        22-10-2012
+
+############### NLR: AR.Drone Keyboard Interface ###############
+'''
+
+# Libraries
 import roslib; roslib.load_manifest('ardrone_interface')
 import rospy
 import pygame
@@ -11,20 +26,20 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 
 class Interface():
-    ''' Graphical Interface for the control interface of the AR.Drone '''
+    ''' User Interface for controlling the AR.Drone '''
 
-    # Constructor
     def __init__(self):
-        ''' Constructor for setting up the GUI '''
+        ''' Constructor for setting up the User Interface '''
+    	# Initialize pygame
         pygame.init()
         
-        # Clock init
+        # Initialize Clock
         self.clock = pygame.time.Clock()
 
         # Setup the main screen
-        self.resolution = (640, 360)
+        self.resolution = (640, 360) # This is the screen size of AR.Drone 2. Works also for AR.Drone 1
         self.screen     = pygame.display.set_mode( self.resolution )
-        pygame.display.set_caption( 'Keyboard Interface for AR.Drone' )
+        pygame.display.set_caption( 'NLR: AR.Drone Keyboard Interface' )
 
         # Setup the background
         self.background = pygame.Surface( self.screen.get_size() )
@@ -46,11 +61,12 @@ class Interface():
         self.image = None
 
     def __del__(self):
+        ''' Destructor of the User Interface'''
         pygame.quit()
 
     def run(self):
-        ''' Updates the screen and checks for quit events '''
-        print "Starting up keyboard interface"
+        ''' Main loop, which refreshes the screen and handles User Input '''
+        print "Starting NLR: AR.Drone Keyboard Interface"
         done = False
 
         while not(done):
@@ -119,6 +135,7 @@ class Interface():
             self.clock.tick(30)
 
     def __draw(self):
+        ''' Draws the camera feed on the screen '''
         if self.image == None:
             return
         image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
@@ -126,6 +143,7 @@ class Interface():
         pygame.display.flip()
 
     def __toggleCam(self):
+        ''' Switches between camera feeds of the AR.Drone '''
         rospy.wait_for_service( 'ardrone/togglecam' )
         try:
             toggle = rospy.ServiceProxy( 'ardrone/togglecam', std_srvs.srv.Empty )
@@ -134,22 +152,26 @@ class Interface():
             print "Service call failed: %s"%e
 
     def __takeOff(self):
+        ''' Take off signal for AR.Drone '''
         print "Taking off"
         self.publisher_takeOff.publish( Empty() )
 
     def __land(self):
+        ''' Landing signal for AR.Drone '''
         print "Landing"
         self.publisher_land.publish( Empty() )
 
     def __callback(self, raw_image):
+        ''' Callback function for the camera feed '''
         self.image = raw_image
 
 if __name__ == '__main__':
-    print '\n\n---> Starting up driver!\n\n'
+    ''' Starts up the software '''
+    print '\n---> Starting up driver!\n'
     ardrone_driver = Popen( ['rosrun', 'ardrone_autonomy', 'ardrone_driver'])
-    print '\n\n---> Starting up Inferface!\n\n'
+    print '\n---> Starting up NLR: AR.Drone Keyboard Inferface!\n'
     GUI = Interface()
     GUI.run()
     ardrone_driver.kill()
-    print '\n\n---> Shutting down driver!\n\n'
-    print '\n\n---> Ended Sucessfuly!\n\n'
+    print '\n---> Shutting down driver!\n'
+    print '\n---> Ended Sucessfuly!\n'

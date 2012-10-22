@@ -96,14 +96,10 @@ class Interface():
                     elif event.key == pygame.K_c:
                         self.__toggleCam()
                     elif event.key == pygame.K_MINUS:
-                        new_speed = self.speed - 0.05
-                        if new_speed >= -1:
-                            self.speed = new_speed
+                        self.__switchSpeed( -0.05 )
                         print self.speed
                     elif event.key == pygame.K_EQUALS:
-                        new_speed = self.speed + 0.05
-                        if new_speed <= 1:
-                            self.speed = new_speed
+                        self.__switchSpeed( 0.05 )
                         print self.speed
                     elif event.key == pygame.K_SPACE:
                         if self.airborne:
@@ -164,6 +160,11 @@ class Interface():
     def __callback(self, raw_image):
         ''' Callback function for the camera feed '''
         self.image = raw_image
+
+    def __switchSpeed( self, speed ):
+        new_speed = self.speed + speed
+        if new_speed >= -1 and new_speed <= 1:
+            self.speed = new_speed
 
 if __name__ == '__main__':
     ''' Starts up the software '''

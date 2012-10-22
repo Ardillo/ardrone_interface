@@ -37,7 +37,7 @@ class Interface():
         self.clock = pygame.time.Clock()
 
         # Setup the main screen
-        self.resolution = (640, 360) # This is the screen size of AR.Drone 2. Works also for AR.Drone 1
+        self.resolution = (640, 460) # This is the screen size of AR.Drone 2. Works also for AR.Drone 1
         self.screen     = pygame.display.set_mode( self.resolution )
         pygame.display.set_caption( 'NLR: AR.Drone Keyboard Interface' )
 
@@ -45,6 +45,16 @@ class Interface():
         self.background = pygame.Surface( self.screen.get_size() )
         self.background = self.background.convert()
         self.background.fill( (255, 255, 255) )
+
+        # Setup logo
+        self.logo           = pygame.image.load( "../images/logo.png" ).convert()
+        self.logo_rect      = self.logo.get_rect()
+        self.logo_rect.left = 0
+        self.logo_rect.top  = 360
+
+        self.background.blit( self.logo, self.logo_rect )
+        self.screen.blit( self.background, (0,0) )
+        pygame.display.flip()
 
         # ROS Settings
         self.publisher_land           = rospy.Publisher(  '/ardrone/land',      Empty )
@@ -58,7 +68,7 @@ class Interface():
         # AR.Drone Variables
         self.airborne = False
         self.speed    = 0.2
-        self.image = None
+        self.image    = None
 
     def __del__(self):
         ''' Destructor of the User Interface'''
@@ -135,7 +145,8 @@ class Interface():
         if self.image == None:
             return
         image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
-        self.screen.blit( image, (0, 0) )
+        self.background.blit( image, (0, 0) )
+        self.screen.blit( self.background, (0, 0) )
         pygame.display.flip()
 
     def __toggleCam(self):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import roslib; roslib.load_manifest('py_interface')
+import roslib; roslib.load_manifest('ardrone_interface')
 import rospy
 import pygame
 import std_srvs.srv
@@ -145,10 +145,11 @@ class Interface():
         self.image = raw_image
 
 if __name__ == '__main__':
-    roscore        = Popen( ['roscore'] )
-    time.sleep(2)
+    print '\n\n---> Starting up driver!\n\n'
     ardrone_driver = Popen( ['rosrun', 'ardrone_autonomy', 'ardrone_driver'])
+    print '\n\n---> Starting up Inferface!\n\n'
     GUI = Interface()
     GUI.run()
     ardrone_driver.kill()
-    roscore.kill()
+    print '\n\n---> Shutting down driver!\n\n'
+    print '\n\n---> Ended Sucessfuly!\n\n'

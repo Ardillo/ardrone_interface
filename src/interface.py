@@ -174,4 +174,4 @@ if __name__ == '__main__':
     GUI.run()
     ardrone_driver.kill()
     print '\n---> Shutting down driver!\n'
-    print '\n---> Ended Sucessfuly!\n'
+    print '\n---> Ended Successfully!\n'

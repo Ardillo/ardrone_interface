@@ -47,7 +47,7 @@ class Interface():
         self.background.fill( (255, 255, 255) )
 
         # Setup logo
-        self.logo           = pygame.image.load( "../images/logo.png" ).convert()
+        self.logo           = pygame.image.load( roslib.packages.get_pkg_dir('ardrone_interface')+ "/images/logo.png" ).convert()
         self.logo_rect      = self.logo.get_rect()
         self.logo_rect.left = 0
         self.logo_rect.top  = 360

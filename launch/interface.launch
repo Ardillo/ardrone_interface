@@ -1,0 +1,5 @@
+<launch>
+    <group ns="ardrone">
+        <node pkg="ardrone_interface" type="interface.py" name="ardrone_interface" required="true" output="screen" />
+    </group>
+</launch>

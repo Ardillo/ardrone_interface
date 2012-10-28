@@ -6,7 +6,10 @@ Dependencies:
 https://github.com/AutonomyLab/ardrone_autonomy
 
 Install Guide:
-- Install ardrone_autonomy
-- Clone this repository
-- rosmake this module
-- Run it by: rosrun ardrone_interface interface.py
+1. Install ardrone_autonomy
+2. Clone this repository
+3. rosmake this module
+
+Run Guide:
+Run the following in the console:
+roslaunch ardrone_interface interface.launch

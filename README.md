@@ -17,12 +17,10 @@ Controls:
 * `s`	:elevator down
 * `a`	:yaw left
 * `d`	:yaw right
-
 * `up`	:pitch down --> forward
 * `down`	:pitch up   --> backward
 * `left`	:Roll left
 * `right`	:Roll right
-
 * `space`	 :take off / land
 * `c`	:toggle between front camera and bottom camera
 * `r`	:reset/flat trim

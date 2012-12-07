@@ -10,3 +10,21 @@ Install Guide:
 - Clone this repository
 - rosmake this module
 - Run it by: rosrun ardrone_interface interface.py
+
+Controls:
+
+w	elevator up	
+s	elevator down
+a	yaw left
+d	yaw right
+
+UP	pitch down --> forward
+DOWN  	pitch up   --> backward
+LEFT	Roll left
+RIGHT	Roll right
+
+space 	take off / land
+c	toggle between front camera and bottom camera
+r	reset/flat trim
+-	decrease sensibility
++	increase sensibility

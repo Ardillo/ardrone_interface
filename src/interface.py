@@ -59,6 +59,7 @@ class Interface():
         # ROS Settings
         self.publisher_land           = rospy.Publisher(  '/ardrone/land',      Empty )
         self.publisher_takeOff        = rospy.Publisher(  '/ardrone/takeoff',   Empty )
+	self.publisher_reset	      = rospy.Publisher(  '/ardrone/reset',     Empty ) #edited by Ardillo make a reset possible after over-tilt
         self.publisher_parameters     = rospy.Publisher(  '/cmd_vel',           Twist )
         self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback )
         self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback )
@@ -105,11 +106,13 @@ class Interface():
                         self.parameters.angular.z = -self.speed
                     elif event.key == pygame.K_c:
                         self.__toggleCam()
+		    elif event.key == pygame.K_r: #edited by Ardillo making reset function
+			self.__reset()
                     elif event.key == pygame.K_MINUS:
-                        self.__switchSpeed( -0.05 )
+                        self.__switchSpeed( -0.01 ) #edited by Ardillo making it more sensible
                         print self.speed
                     elif event.key == pygame.K_EQUALS:
-                        self.__switchSpeed( 0.05 )
+                        self.__switchSpeed( 0.01 ) #edited by Ardillo making it more sensible
                         print self.speed
                     elif event.key == pygame.K_SPACE:
                         if self.airborne:
@@ -176,6 +179,11 @@ class Interface():
         new_speed = self.speed + speed
         if new_speed >= -1 and new_speed <= 1:
             self.speed = new_speed
+
+    def __reset(self):				#edited by Ardillo making reset function
+	''' Reset signal for AR.Drone '''
+	print "Resetting"
+	self.publisher_reset.publish( Empty() )
 
 if __name__ == '__main__':
     ''' Starts up the software '''

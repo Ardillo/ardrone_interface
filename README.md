@@ -13,18 +13,18 @@ Install Guide:
 
 Controls:
 
-- 'w'		elevator up	
-- 's'		elevator down
-- 'a'		yaw left
-- 'd'		yaw right
+* `w`		elevator up	
+* `s`	:elevator down
+* `a`	:yaw left
+* `d`	:yaw right
 
-- 'UP'		pitch down --> forward
-- 'DOWN'  	pitch up   --> backward
-- 'LEFT'	Roll left
-- 'RIGHT'	Roll right
+* `up`	:pitch down --> forward
+* `down`	:pitch up   --> backward
+* `left`	:Roll left
+* `right`	:Roll right
 
-- 'space' 	take off / land
-- 'c'		toggle between front camera and bottom camera
-- 'r'		reset/flat trim
-- '-'		decrease sensibility
-- '+'		increase sensibility
+* `space`	 :take off / land
+* `c`	:toggle between front camera and bottom camera
+* `r`	:reset/flat trim
+* `-`	:decrease sensibility
+* `+`	:increase sensibility

@@ -24,6 +24,7 @@ from pygame.locals import *
 from std_msgs.msg import *
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
+from tld_msgs.msg import BoundingBox
 
 class Interface():
     ''' User Interface for controlling the AR.Drone '''
@@ -59,9 +60,11 @@ class Interface():
         # ROS Settings
         self.publisher_land           = rospy.Publisher(  '/ardrone/land',      Empty )
         self.publisher_takeOff        = rospy.Publisher(  '/ardrone/takeoff',   Empty )
+        self.publisher_reset          = rospy.Publisher(  '/ardrone/reset',     Empty )
         self.publisher_parameters     = rospy.Publisher(  '/cmd_vel',           Twist )
         self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback )
         self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback )
+        self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker )
         self.parameters               = Twist()
         rospy.init_node( 'interface' )
 
@@ -69,6 +72,9 @@ class Interface():
         self.airborne = False
         self.speed    = 0.2
         self.image    = None
+
+        # Tracking box outside of screen
+        self.tracking_box = pygame.Rect(641, 361, 1, 1)
 
     def __del__(self):
         ''' Destructor of the User Interface'''
@@ -105,6 +111,8 @@ class Interface():
                         self.parameters.angular.z = -self.speed
                     elif event.key == pygame.K_c:
                         self.__toggleCam()
+                    elif event.key == pygame.K_r: #edited by Ardillo making reset function
+                        self.__reset()
                     elif event.key == pygame.K_MINUS:
                         self.__switchSpeed( -0.05 )
                         print self.speed
@@ -146,6 +154,7 @@ class Interface():
             return
         image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
         self.background.blit( image, (0, 0) )
+        pygame.draw.rect( self.background, (255, 0, 0), self.tracking_box, 2 )
         self.screen.blit( self.background, (0, 0) )
         pygame.display.flip()
 
@@ -172,10 +181,19 @@ class Interface():
         ''' Callback function for the camera feed '''
         self.image = raw_image
 
+    def __callback_tracker(self, tracking_box):
+        ''' Callback function for the rectangle'''
+        self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
+
     def __switchSpeed( self, speed ):
         new_speed = self.speed + speed
         if new_speed >= -1 and new_speed <= 1:
             self.speed = new_speed
+
+    def __reset(self):              #edited by Ardillo making reset function
+        ''' Reset signal for AR.Drone '''
+        print "Resetting"
+        self.publisher_reset.publish( Empty() )
 
 if __name__ == '__main__':
     ''' Starts up the software '''

@@ -72,6 +72,7 @@ class Interface():
         self.airborne = False
         self.speed    = 0.2
         self.image    = None
+	self.manual_flightmode = True
 
         # Tracking box
         self.tracking_box = pygame.Rect(641, 361, 1, 1)
@@ -126,6 +127,12 @@ class Interface():
                         else:
                             self.__takeOff()
                             self.airborne = True
+		    elif event.key == pygame.K_m: # Boolean toggle by Ardillo
+			self.manual_flightmode = not self.manual_flightmode
+			print "Manual_flightmode =",self.manual_flightmode
+			if self.manual_flightmode == False:
+			    self.__trackObject()
+			
                 # Check if key is released.
                 elif event.type == pygame.KEYUP:
                     if   event.key == pygame.K_UP:
@@ -144,6 +151,7 @@ class Interface():
                         self.parameters.linear.z = 0
                     elif event.key == pygame.K_d:
                         self.parameters.angular.z = 0
+
             self.publisher_parameters.publish( self.parameters )
             self.__draw()
             self.clock.tick(30)
@@ -152,9 +160,9 @@ class Interface():
         ''' Draws the camera feed on the screen '''
         if self.image == None:
             return
-        image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
+ 	image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
         self.background.blit( image, (0, 0) )
-        pygame.draw.rect( self.background, (255, 0, 0), self.tracking_box, 2 )
+       	pygame.draw.rect( self.background, (0, 0, 255), self.tracking_box, 2 )
         self.screen.blit( self.background, (0, 0) )
         pygame.display.flip()
 
@@ -183,17 +191,37 @@ class Interface():
 
     def __callback_tracker(self, tracking_box):
         ''' Callback function for the rectangle'''
-        self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
+	self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
+
 
     def __switchSpeed( self, speed ):
         new_speed = self.speed + speed
         if new_speed >= -1 and new_speed <= 1:
             self.speed = new_speed
 
-    def __reset(self):				#edited by Ardillo making reset function
+    def __reset(self):				# edited by Ardillo making reset function
 	''' Reset signal for AR.Drone '''
 	print "Resetting"
 	self.publisher_reset.publish( Empty() )
+
+    def __trackObject(self):			# making an automated flight procedure by Ardillo, NO CONTROLS POSSIBLE EXCEPT EMERGENCY RESET
+	''' Track the target '''
+	print "In tracking mode"
+	while (True):
+	    for event in pygame.event.get():
+        	# Check if window is quit
+        	if event.type == pygame.QUIT:
+        	    done = True
+        	    break
+        	# Check if key is pressed
+        	elif event.type == pygame.KEYDOWN:
+		    if  event.key == pygame.K_m:
+			print "Back to manual_flightmode"
+			self.manual_flightmode = not self.manual_flightmode
+			return
+		    elif event.key == pygame.K_r: 
+			self.__reset()
+	
 
 if __name__ == '__main__':
     ''' Starts up the software '''

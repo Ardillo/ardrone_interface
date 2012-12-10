@@ -24,6 +24,7 @@ from pygame.locals import *
 from std_msgs.msg import *
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
+from tld_msgs.msg import BoundingBox
 
 class Interface():
     ''' User Interface for controlling the AR.Drone '''
@@ -61,8 +62,9 @@ class Interface():
         self.publisher_takeOff        = rospy.Publisher(  '/ardrone/takeoff',   Empty )
 	self.publisher_reset	      = rospy.Publisher(  '/ardrone/reset',     Empty ) #edited by Ardillo make a reset possible after over-tilt
         self.publisher_parameters     = rospy.Publisher(  '/cmd_vel',           Twist )
-        self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback )
-        self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback )
+        self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback ) # Front image
+        self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback ) # Bottom image
+        self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker ) # Tracker
         self.parameters               = Twist()
         rospy.init_node( 'interface' )
 
@@ -70,6 +72,9 @@ class Interface():
         self.airborne = False
         self.speed    = 0.2
         self.image    = None
+
+        # Tracking box
+        self.tracking_box = pygame.Rect(641, 361, 1, 1)
 
     def __del__(self):
         ''' Destructor of the User Interface'''
@@ -149,6 +154,7 @@ class Interface():
             return
         image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
         self.background.blit( image, (0, 0) )
+        pygame.draw.rect( self.background, (255, 0, 0), self.tracking_box, 2 )
         self.screen.blit( self.background, (0, 0) )
         pygame.display.flip()
 
@@ -174,6 +180,10 @@ class Interface():
     def __callback(self, raw_image):
         ''' Callback function for the camera feed '''
         self.image = raw_image
+
+    def __callback_tracker(self, tracking_box):
+        ''' Callback function for the rectangle'''
+        self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
 
     def __switchSpeed( self, speed ):
         new_speed = self.speed + speed

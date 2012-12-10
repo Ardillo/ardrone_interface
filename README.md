@@ -23,7 +23,7 @@ Controls:
 * `right`	:Roll right
 * `space`	 :take off / land
 * `c`	:toggle between front camera and bottom camera
-* `r`	:reset/flat trim
+* `r`	:reset/flat trim --> Works in both flight modes 
 * `-`	:decrease sensibility
 * `+`	:increase sensibility
 * `m`   :toggle between manual_flightmode and autonomous_flightmode

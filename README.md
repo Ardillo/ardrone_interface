@@ -26,3 +26,4 @@ Controls:
 * `r`	:reset/flat trim
 * `-`	:decrease sensibility
 * `+`	:increase sensibility
+* `m`   :toggle between manual_flightmode and autonomous_flightmode

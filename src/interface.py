@@ -132,6 +132,7 @@ class Interface():
 			print "Manual_flightmode =",self.manual_flightmode
 			if self.manual_flightmode == False:
 			    self.__trackObject()
+			    print "Manual_flightmode =",self.manual_flightmode
 			
                 # Check if key is released.
                 elif event.type == pygame.KEYUP:
@@ -206,7 +207,7 @@ class Interface():
 
     def __trackObject(self):			# making an automated flight procedure by Ardillo, NO CONTROLS POSSIBLE EXCEPT EMERGENCY RESET
 	''' Track the target '''
-	print "In tracking mode"
+	print "In autonomous_flightmode"
 	while (True):
 	    for event in pygame.event.get():
         	# Check if window is quit

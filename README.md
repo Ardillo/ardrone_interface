@@ -1,17 +1,17 @@
-ardrone_interface
+# ardrone_interface
 =================
 Interface based on pygame and ROS to control the AR.Drone
 
-Dependencies:
+## Dependencies:
 https://github.com/AutonomyLab/ardrone_autonomy
 
-Install Guide:
+## Install Guide:
 - Install ardrone_autonomy
 - Clone this repository
 - rosmake this module
 - Run it by: rosrun ardrone_interface interface.py
 
-Controls:
+## Controls:
 
 * `w`		elevator up	
 * `s`	:elevator down
@@ -28,11 +28,11 @@ Controls:
 * `+`	:increase sensibility
 * `m`   :toggle between manual_flightmode and autonomous_flightmode
 
-Autonomous_flightmode:
+## Autonomous_flightmode:
 
 When changed to autonomous flying the interface wil try to steer the ARdrone in
-a manner that the object that you're will stay in the gray rectangle.
+a manner that the object, the one you are tracking, will stay in the gray rectangle.
 
-!! Warning !! 
+### !! Warning !! 
 This is work in progress and at the moment not all dimensions and steering
 commands are implemented.

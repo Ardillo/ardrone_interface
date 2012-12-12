@@ -243,9 +243,10 @@ class Interface():
 		    
 		    #self.old_seq = self.header_seq
 		    self.publisher_parameters.publish( self.parameters )
+		    self.clock.tick(30)
                     self.parameters.linear.y = 0
                     self.parameters.linear.x = 0
-                    self.clock.tick(30)
+                    
 
 	        for event in pygame.event.get():
         	    # Check if window is quit
@@ -264,14 +265,6 @@ class Interface():
 	        self.__draw()
 
 
-
-	 
-	    
-
-
-
-
-		
 	    
 	
 

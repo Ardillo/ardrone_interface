@@ -27,3 +27,12 @@ Controls:
 * `-`	:decrease sensibility
 * `+`	:increase sensibility
 * `m`   :toggle between manual_flightmode and autonomous_flightmode
+
+Autonomous_flightmode:
+
+When changed to autonomous flying the interface wil try to steer the ARdrone in
+a manner that the object that you're will stay in the gray rectangle.
+
+!! Warning !! 
+This is work in progress and at the moment not all dimensions and steering
+commands are implemented.

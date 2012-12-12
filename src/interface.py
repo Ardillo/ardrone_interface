@@ -52,6 +52,7 @@ class Interface():
         self.logo_rect      = self.logo.get_rect()
         self.logo_rect.left = 0
         self.logo_rect.top  = 360
+	
 
         self.background.blit( self.logo, self.logo_rect )
         self.screen.blit( self.background, (0,0) )
@@ -73,9 +74,13 @@ class Interface():
         self.speed    = 0.2
         self.image    = None
 	self.manual_flightmode = True
+	self.confidence = None 	#confidence variable by Ardillo, has to be in front of ROS Settings.
+	self.header_seq = None
+	self.old_seq = None
 
         # Tracking box
-        self.tracking_box = pygame.Rect(641, 361, 1, 1)
+        self.tracking_box = pygame.Rect(641, 461, 1, 1)
+	self.center_box = pygame.Rect((320-64), (230-46), 128, 92)
 
     def __del__(self):
         ''' Destructor of the User Interface'''
@@ -163,7 +168,11 @@ class Interface():
             return
  	image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
         self.background.blit( image, (0, 0) )
-       	pygame.draw.rect( self.background, (0, 0, 255), self.tracking_box, 2 )
+	if self.old_seq == self.header_seq: # don't show old rectangles
+	    self.tracking_box = pygame.Rect(641, 461, 1, 1)
+	self.old_seq = self.header_seq
+        pygame.draw.rect( self.background, (0, 0, 255), self.tracking_box, 2 )
+       	pygame.draw.rect( self.background, (100, 100, 100), self.center_box, 1 )
         self.screen.blit( self.background, (0, 0) )
         pygame.display.flip()
 
@@ -193,7 +202,8 @@ class Interface():
     def __callback_tracker(self, tracking_box):
         ''' Callback function for the rectangle'''
 	self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
-
+	self.confidence = tracking_box.confidence # got the confidence variable, for future use. By Ardillo
+	self.header_seq = tracking_box.header.seq
 
     def __switchSpeed( self, speed ):
         new_speed = self.speed + speed
@@ -208,20 +218,61 @@ class Interface():
     def __trackObject(self):			# making an automated flight procedure by Ardillo, NO CONTROLS POSSIBLE EXCEPT EMERGENCY RESET
 	''' Track the target '''
 	print "In autonomous_flightmode"
-	while (True):
-	    for event in pygame.event.get():
-        	# Check if window is quit
-        	if event.type == pygame.QUIT:
-        	    done = True
-        	    break
-        	# Check if key is pressed
-        	elif event.type == pygame.KEYDOWN:
-		    if  event.key == pygame.K_m:
-			print "Back to manual_flightmode"
-			self.manual_flightmode = not self.manual_flightmode
-			return
-		    elif event.key == pygame.K_r: 
-			self.__reset()
+	done = False
+	while not(done):
+
+		# check location of Bounding box.
+	    	if self.tracking_box.x <= 640 and self.tracking_box.y <= 460:
+	            #print "within marge, x = " , self.tracking_box.x , " y = " , self.tracking_box.y
+		    self.center_tracking_box_x = self.tracking_box.x + (self.tracking_box.width / 2)
+		    self.center_tracking_box_y = self.tracking_box.y + (self.tracking_box.height / 2)
+
+		    if self.old_seq != self.header_seq:	
+		    	if self.center_tracking_box_x < self.center_box.x:
+		            print "go Right !"
+		            self.parameters.linear.y = -self.speed
+		    	if self.center_tracking_box_x > (self.center_box.x + self.center_box.width):
+		            print "go Left !"
+		            self.parameters.linear.y = self.speed
+		    	if self.center_tracking_box_y < self.center_box.y:
+		            print "go Up !"
+		            self.parameters.linear.x = self.speed
+		    	if self.center_tracking_box_y > (self.center_box.y + self.center_box.height):
+		            print "go Down !"
+		            self.parameters.linear.x = -self.speed
+		    
+		    #self.old_seq = self.header_seq
+		    self.publisher_parameters.publish( self.parameters )
+                    self.parameters.linear.y = 0
+                    self.parameters.linear.x = 0
+                    self.clock.tick(30)
+
+	        for event in pygame.event.get():
+        	    # Check if window is quit
+        	    if event.type == pygame.QUIT:
+        	        done = True
+        	        break
+        	    # Check if key is pressed
+        	    elif event.type == pygame.KEYDOWN:
+		        if  event.key == pygame.K_m:
+			    print "Back to manual_flightmode"
+			    self.manual_flightmode = not self.manual_flightmode
+			    return
+		        elif event.key == pygame.K_r: 
+			    self.__reset()
+
+	        self.__draw()
+
+
+
+	 
+	    
+
+
+
+
+		
+	    
 	
 
 if __name__ == '__main__':

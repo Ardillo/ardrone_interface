@@ -274,52 +274,6 @@ class Interface():
         print "Resetting"
         self.publisher_reset.publish( Empty() )
 
-class Mouse():
-    def __init__(self):
-        self.LEFT        = MouseButton()
-        self.SCROLL      = MouseButton()
-        self.RIGHT       = MouseButton()
-        self.SCROLL_UP   = MouseButton()
-        self.SCROLL_DOWN = MouseButton()
-        self.CURSOR      = None
-
-    def click(self, event):
-        # Left mouse
-        if event.button == 1:
-            self.LEFT.update( True, event.pos )
-        # Scroll mid
-        elif event.button == 2:
-            self.SCROLL.update( True, event.pos )
-        # Right mouse
-        elif event.button == 3:
-            self.RIGHT.update( True, event.pos )
-        # Scroll up
-        elif event.button == 4:
-            self.SCROLL_UP.update( True, event.pos )
-        # Scroll down
-        elif event.button == 5:
-            self.SCROLL_DOWN.update( True, event.pos )
-
-    def release(self, event):
-       pass 
-
-    def cursor(self, event):
-        self.CURSOR = event.pos
-
-class MouseButton():
-    def __init__(self):
-        self.press = False
-        self.pos   = dict()
-        self.pos[False] = None
-        self.pos[True] = None
-
-    def update(self, press, pos):
-        self.press      = press
-        self.pos[press] = pos
-
-    def reset(self):
-        self.__init__()
-
 if __name__ == '__main__':
     ''' Starts up the software '''
     print '\n---> Starting up driver!\n'

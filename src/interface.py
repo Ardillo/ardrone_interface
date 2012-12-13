@@ -25,6 +25,7 @@ from std_msgs.msg import *
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from tld_msgs.msg import BoundingBox
+from tld_msgs.msg import Target
 
 class Interface():
     ''' User Interface for controlling the AR.Drone '''
@@ -58,12 +59,13 @@ class Interface():
         pygame.display.flip()
 
         # ROS Settings
-        self.publisher_land           = rospy.Publisher(  '/ardrone/land',      Empty )
-        self.publisher_takeOff        = rospy.Publisher(  '/ardrone/takeoff',   Empty )
-        self.publisher_reset          = rospy.Publisher(  '/ardrone/reset',     Empty )
-        self.publisher_parameters     = rospy.Publisher(  '/cmd_vel',           Twist )
-        self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback )
-        self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback )
+        self.publisher_land           = rospy.Publisher(  '/ardrone/land',      Empty  )
+        self.publisher_takeOff        = rospy.Publisher(  '/ardrone/takeoff',   Empty  )
+        self.publisher_reset          = rospy.Publisher(  '/ardrone/reset',     Empty  )
+        self.publisher_parameters     = rospy.Publisher(  '/cmd_vel',           Twist  )
+        self.publisher_tracking_box   = rospy.Publisher(  '/tld_gui_bb',        Target )
+        self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback_camera )
+        self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback_camera )
         self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker )
         self.parameters               = Twist()
         rospy.init_node( 'interface' )
@@ -74,7 +76,14 @@ class Interface():
         self.image    = None
 
         # Tracking box outside of screen
-        self.tracking_box = pygame.Rect(641, 361, 1, 1)
+        self.tracking = False
+        self.tracking_box = None
+
+        # Select box
+        self.selected    = False
+        self.click_loc   = None
+        self.release_loc = None
+        
 
     def __del__(self):
         ''' Destructor of the User Interface'''
@@ -91,6 +100,25 @@ class Interface():
                 if event.type == pygame.QUIT:
                     done = True
                     break
+                # Check if mousebutton is pressed
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if not(self.tracking):
+                            self.selected = True
+                            self.click_loc = event.pos
+                # Check if mousebutton is released
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    # Left mouse button
+                    if event.button == 1:
+                        if not(self.tracking):
+                            self.selected = False
+                            self.release_loc = event.pos
+                            self.__updateSelectBox()
+                # Check if mouse is moved
+                elif event.type == pygame.MOUSEMOTION:
+                    if not(self.tracking) and self.selected:
+                        self.release_loc = event.pos
+                        self.__updateSelectBox()
                 # Check if key is pressed
                 elif event.type == pygame.KEYDOWN:
                     if   event.key == pygame.K_UP:
@@ -113,6 +141,10 @@ class Interface():
                         self.__toggleCam()
                     elif event.key == pygame.K_r: #edited by Ardillo making reset function
                         self.__reset()
+                    elif event.key == pygame.K_RETURN:
+                        if self.tracking_box:
+                            self.tracking = True
+                            self.__sendTrackingBox()
                     elif event.key == pygame.K_MINUS:
                         self.__switchSpeed( -0.05 )
                         print self.speed
@@ -154,9 +186,55 @@ class Interface():
             return
         image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
         self.background.blit( image, (0, 0) )
-        pygame.draw.rect( self.background, (255, 0, 0), self.tracking_box, 2 )
+        if self.tracking_box:
+            pygame.draw.rect( self.background, (255, 0, 0), self.tracking_box, 2 )
         self.screen.blit( self.background, (0, 0) )
         pygame.display.flip()
+
+    def __updateSelectBox(self):
+        if not(self.click_loc and self.release_loc):
+            return
+
+        x1, y1 = self.click_loc
+        x2, y2 = self.release_loc
+
+        # Determining height and width of rect
+        width_rect  = abs(x1 - x2)
+        height_rect = abs(y1 - y2)
+
+        # Determining top left
+        min_x = x1
+        min_y = y1
+        if x1 < x2:
+            if y1 < y2:
+                pass
+            else:
+                min_y = y2
+        else:
+            if y1 < y2:
+                min_x = x2
+            else:
+                min_x = x2
+                min_y = y2
+        if min_x > self.resolution[0]:
+            return
+        if min_y > self.resolution[1] - 100:
+            return
+        if width_rect + min_x > self.resolution[0]:
+            return
+        if height_rect + min_y > self.resolution[1] - 101:
+            return
+        self.tracking_box = pygame.Rect(min_x, min_y, width_rect, height_rect)
+
+    def __sendTrackingBox(self):
+        target = Target()
+        target.bb.x          = self.tracking_box.x
+        target.bb.y          = self.tracking_box.y
+        target.bb.width      = self.tracking_box.width
+        target.bb.height     = self.tracking_box.height
+        target.bb.confidence = 1.0
+        target.img           = self.image
+        self.publisher_tracking_box.publish( target )
 
     def __toggleCam(self):
         ''' Switches between camera feeds of the AR.Drone '''
@@ -177,9 +255,10 @@ class Interface():
         print "Landing"
         self.publisher_land.publish( Empty() )
 
-    def __callback(self, raw_image):
+    def __callback_camera(self, raw_image):
         ''' Callback function for the camera feed '''
-        self.image = raw_image
+        if self.tracking or not(self.selected):
+            self.image = raw_image
 
     def __callback_tracker(self, tracking_box):
         ''' Callback function for the rectangle'''
@@ -195,13 +274,64 @@ class Interface():
         print "Resetting"
         self.publisher_reset.publish( Empty() )
 
+class Mouse():
+    def __init__(self):
+        self.LEFT        = MouseButton()
+        self.SCROLL      = MouseButton()
+        self.RIGHT       = MouseButton()
+        self.SCROLL_UP   = MouseButton()
+        self.SCROLL_DOWN = MouseButton()
+        self.CURSOR      = None
+
+    def click(self, event):
+        # Left mouse
+        if event.button == 1:
+            self.LEFT.update( True, event.pos )
+        # Scroll mid
+        elif event.button == 2:
+            self.SCROLL.update( True, event.pos )
+        # Right mouse
+        elif event.button == 3:
+            self.RIGHT.update( True, event.pos )
+        # Scroll up
+        elif event.button == 4:
+            self.SCROLL_UP.update( True, event.pos )
+        # Scroll down
+        elif event.button == 5:
+            self.SCROLL_DOWN.update( True, event.pos )
+
+    def release(self, event):
+       pass 
+
+    def cursor(self, event):
+        self.CURSOR = event.pos
+
+class MouseButton():
+    def __init__(self):
+        self.press = False
+        self.pos   = dict()
+        self.pos[False] = None
+        self.pos[True] = None
+
+    def update(self, press, pos):
+        self.press      = press
+        self.pos[press] = pos
+
+    def reset(self):
+        self.__init__()
+
 if __name__ == '__main__':
     ''' Starts up the software '''
     print '\n---> Starting up driver!\n'
     ardrone_driver = Popen( ['rosrun', 'ardrone_autonomy', 'ardrone_driver'])
+    #opentld        = Popen( ['roslaunch', 'tld_tracker', 'ros_tld_tracker.launch'])
     print '\n---> Starting up NLR: AR.Drone Keyboard Inferface!\n'
     GUI = Interface()
-    GUI.run()
+    try:
+        GUI.run()
+    except Exception as e:
+        print "ERROR:", e
     ardrone_driver.kill()
+    #opentld.kill()
     print '\n---> Shutting down driver!\n'
     print '\n---> Ended Successfully!\n'

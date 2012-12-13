@@ -25,6 +25,7 @@ from std_msgs.msg import *
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from tld_msgs.msg import BoundingBox
+from ardrone_autonomy.msg import Navdata
 
 class Interface():
     ''' User Interface for controlling the AR.Drone '''
@@ -63,8 +64,9 @@ class Interface():
         self.publisher_takeOff        = rospy.Publisher(  '/ardrone/takeoff',   Empty )
 	self.publisher_reset	      = rospy.Publisher(  '/ardrone/reset',     Empty ) #edited by Ardillo make a reset possible after over-tilt
         self.publisher_parameters     = rospy.Publisher(  '/cmd_vel',           Twist )
-        self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback ) # Front image
-        self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback ) # Bottom image
+        self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback_image ) # Front image
+        self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback_image ) # Bottom image
+        self.subscriber_navdata       = rospy.Subscriber( '/ardrone/navdata', Navdata, self.__callback_navdata ) # Navdata
         self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker ) # Tracker
         self.parameters               = Twist()
         rospy.init_node( 'interface' )
@@ -77,10 +79,11 @@ class Interface():
 	self.confidence = None 	#confidence variable by Ardillo, has to be in front of ROS Settings.
 	self.header_seq = None
 	self.old_seq = None
+	self.battery_percent = None
 
         # Tracking box
         self.tracking_box = pygame.Rect(641, 461, 1, 1)
-	self.center_box = pygame.Rect((320-64), (230-46), 128, 92)
+	self.center_box = pygame.Rect((320-64), (180-46), 128, 92)
 
     def __del__(self):
         ''' Destructor of the User Interface'''
@@ -125,7 +128,9 @@ class Interface():
                     elif event.key == pygame.K_EQUALS:
                         self.__switchSpeed( 0.01 ) #edited by Ardillo making it more sensible
                         print self.speed
-                    elif event.key == pygame.K_SPACE:
+		    elif event.key == pygame.K_b:
+			print "Battery:", self.battery_percent
+                    elif event.key == pygame.K_SPACE:		    			
                         if self.airborne:
                             self.__land()
                             self.airborne = False
@@ -195,7 +200,7 @@ class Interface():
         print "Landing"
         self.publisher_land.publish( Empty() )
 
-    def __callback(self, raw_image):
+    def __callback_image(self, raw_image):
         ''' Callback function for the camera feed '''
         self.image = raw_image
 
@@ -204,6 +209,11 @@ class Interface():
 	self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
 	self.confidence = tracking_box.confidence # got the confidence variable, for future use. By Ardillo
 	self.header_seq = tracking_box.header.seq
+
+    def __callback_navdata(self, navdata):
+        ''' Callback function for the camera feed '''
+        self.battery_percent = navdata.batteryPercent
+
 
     def __switchSpeed( self, speed ):
         new_speed = self.speed + speed
@@ -229,24 +239,25 @@ class Interface():
 
 		    if self.old_seq != self.header_seq:	
 		    	if self.center_tracking_box_x < self.center_box.x:
-		            print "go Right !"
-		            self.parameters.linear.y = -self.speed
-		    	if self.center_tracking_box_x > (self.center_box.x + self.center_box.width):
 		            print "go Left !"
 		            self.parameters.linear.y = self.speed
+			elif self.center_tracking_box_x > (self.center_box.x + self.center_box.width):
+			    print "go Right !"
+		            self.parameters.linear.y = -self.speed
+			else:
+			    self.parameters.linear.y = 0
 		    	if self.center_tracking_box_y < self.center_box.y:
 		            print "go Up !"
-		            self.parameters.linear.x = self.speed
-		    	if self.center_tracking_box_y > (self.center_box.y + self.center_box.height):
+		            self.parameters.linear.z = self.speed
+			elif self.center_tracking_box_y > (self.center_box.y + self.center_box.height):
 		            print "go Down !"
-		            self.parameters.linear.x = -self.speed
+		            self.parameters.linear.z = -self.speed
+			else:
+			    self.parameters.linear.z = 0		    	
 		    
 		    #self.old_seq = self.header_seq
-		    self.publisher_parameters.publish( self.parameters )
-		    self.clock.tick(30)
-                    self.parameters.linear.y = 0
-                    self.parameters.linear.x = 0
-                    
+		    self.publisher_parameters.publish( self.parameters )		    
+		    #self.clock.tick(30)                  
 
 	        for event in pygame.event.get():
         	    # Check if window is quit
@@ -261,6 +272,8 @@ class Interface():
 			    return
 		        elif event.key == pygame.K_r: 
 			    self.__reset()
+                        elif event.key == pygame.K_b:
+			    print "Battery:", self.battery_percent
 
 	        self.__draw()
 

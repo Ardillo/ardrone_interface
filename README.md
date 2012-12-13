@@ -27,6 +27,7 @@ https://github.com/AutonomyLab/ardrone_autonomy
 * `-`	:decrease sensibility
 * `+`	:increase sensibility
 * `m`   :toggle between manual_flightmode and autonomous_flightmode
+* `b`   :show batterystatus in percent
 
 ## Autonomous_flightmode:
 

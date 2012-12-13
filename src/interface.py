@@ -83,7 +83,10 @@ class Interface():
 
         # Tracking box
         self.tracking_box = pygame.Rect(641, 461, 1, 1)
-	self.center_box = pygame.Rect((320-64), (180-46), 128, 92)
+		# resolution videofeed = 640 x 360
+	self.center_box_width = 256
+	self.center_box_height = 184
+	self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
 
     def __del__(self):
         ''' Destructor of the User Interface'''

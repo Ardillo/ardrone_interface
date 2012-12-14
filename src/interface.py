@@ -89,7 +89,7 @@ class Interface():
         self.init_height = None
 
         # Tracking box
-        self.tracking_box = pygame.Rect(641, 461, 1, 1)
+        self.returning_tracking_box = pygame.Rect(641, 461, 1, 1)
 	# resolution videofeed = 640 x 360
 	self.center_box_width = 64 #128 #256
 	self.center_box_height = 46 #92 #184
@@ -168,6 +168,11 @@ class Interface():
                         if self.tracking_box:
                             self.tracking = True
                             self.__sendTrackingBox()
+		    elif event.key == pygame.K_t: # tracker reset by Ardillo
+			if self.tracking == True:
+			   print"Resetting tracker"
+			   self.tracking_box = None
+			   self.tracking = False
 
                     elif event.key == pygame.K_MINUS:
                         self.__switchSpeed( -0.01 ) #edited by Ardillo making it more sensible
@@ -221,24 +226,30 @@ class Interface():
  	image = pygame.image.fromstring( self.image.data, (self.image.width, self.image.height), "RGB" )
         self.background.blit( image, (0, 0) )
 	if self.old_seq == self.header_seq: # don't show old rectangles
-	    self.tracking_box = pygame.Rect(641, 461, 1, 1)
+	    self.returning_tracking_box = pygame.Rect(641, 461, 1, 1)	
+	else:
+	    pygame.draw.rect( self.background, (0, 0, 255), self.returning_tracking_box, 2 )
 	self.old_seq = self.header_seq
-        if self.tracking_box:
-            pygame.draw.rect( self.background, (0, 0, 255), self.tracking_box, 2 ) #merged from CamielV's repo
+        if self.tracking_box and self.tracking == False: # Made some changes so it doesn't stay drawed while tracking.
+            pygame.draw.rect( self.background, (0, 255, 0), self.tracking_box, 2 ) #merged from CamielV's repo
        	pygame.draw.rect( self.background, (100, 100, 100), self.center_box, 1 ) 
         self.screen.blit( self.background, (0, 0) )
         pygame.display.flip()
 
     def __updateSelectBox(self):
         if not(self.click_loc and self.release_loc):
-            return
+	    print"error, returning. You're mouse is broken"            
+	    return
+	    
 
         x1, y1 = self.click_loc
         x2, y2 = self.release_loc
+	print"x1 y1", x1, y1, " --> x2 y2", x2, y2
 
         # Determining height and width of rect
         width_rect  = abs(x1 - x2)
         height_rect = abs(y1 - y2)
+	print"width =", width_rect, "height =", height_rect
 
         # Determining top left
         min_x = x1
@@ -263,6 +274,7 @@ class Interface():
         if height_rect + min_y > self.resolution[1] - 101:
             return
         self.tracking_box = pygame.Rect(min_x, min_y, width_rect, height_rect)
+	print"tracking_box", self.tracking_box
 
     def __sendTrackingBox(self):
         target = Target()
@@ -271,8 +283,15 @@ class Interface():
         target.bb.width      = self.tracking_box.width
         target.bb.height     = self.tracking_box.height
         target.bb.confidence = 1.0
+	#print "Target  =" , target
         target.img           = self.image
         self.publisher_tracking_box.publish( target )
+	print "Bounding box send" 
+	print "ARdrone says: 'I'm resetting myself for new input if necessary'" #\o/
+        self.clock.tick(100)
+	self.tracking_box = None
+	self.tracking = False
+	
 
     def __toggleCam(self):
         ''' Switches between camera feeds of the AR.Drone '''
@@ -304,7 +323,7 @@ class Interface():
 
     def __callback_tracker(self, tracking_box):
         ''' Callback function for the rectangle'''
-	self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
+	self.returning_tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
 	self.confidence = tracking_box.confidence # got the confidence variable, for future use. By Ardillo
 	self.header_seq = tracking_box.header.seq
         #if self.firstTime and self.header_seq == 1:
@@ -331,20 +350,21 @@ class Interface():
     def __trackObject(self):			# making an automated flight procedure by Ardillo, NO CONTROLS POSSIBLE EXCEPT EMERGENCY RESET
 	''' Track the target '''
 	print "In autonomous_flightmode"
+	print "ARdrone says: 'I can handle it myself'"
 	done = False
 	firstTime = True
 	offset = 20
 	while not(done):
 
 		# check location of Bounding box.
-	    	if self.tracking_box.x <= 640 and self.tracking_box.y <= 460:
+	    	if self.returning_tracking_box.x <= 640 and self.returning_tracking_box.y <= 460:
 		    if firstTime:
-			self.init_width = self.tracking_box.width
-			self.init_height = self.tracking_box.height
+			self.init_width = self.returning_tracking_box.width
+			self.init_height = self.returning_tracking_box.height
 			firstTime = False
 
-		    self.center_tracking_box_x = self.tracking_box.x + (self.tracking_box.width / 2)
-		    self.center_tracking_box_y = self.tracking_box.y + (self.tracking_box.height / 2)
+		    self.center_tracking_box_x = self.returning_tracking_box.x + (self.returning_tracking_box.width / 2)
+		    self.center_tracking_box_y = self.returning_tracking_box.y + (self.returning_tracking_box.height / 2)
 
 		    if self.old_seq != self.header_seq:	# only when tracking node publishes a new image
 			
@@ -370,10 +390,10 @@ class Interface():
 			else:
 			    self.parameters.linear.z = 0
 			
-			if (self.tracking_box.width + offset) < self.init_width or (self.tracking_box.height + offset) < self.init_height:
+			if (self.returning_tracking_box.width + offset) < self.init_width or (self.returning_tracking_box.height + offset) < self.init_height:
 			    print "go Forward !"
 			    self.parameters.linear.x = self.speed * self.confidence
-			elif (self.tracking_box.width - offset) > self.init_width or (self.tracking_box.height - offset) > self.init_height:
+			elif (self.returning_tracking_box.width - offset) > self.init_width or (self.returning_tracking_box.height - offset) > self.init_height:
 			    print "go Backward !"
 			    self.parameters.linear.x = -self.speed * self.confidence
 			else:			    	

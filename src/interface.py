@@ -243,13 +243,11 @@ class Interface():
 	    
 
         x1, y1 = self.click_loc
-        x2, y2 = self.release_loc
-	print"x1 y1", x1, y1, " --> x2 y2", x2, y2
+        x2, y2 = self.release_loc	
 
         # Determining height and width of rect
         width_rect  = abs(x1 - x2)
         height_rect = abs(y1 - y2)
-	print"width =", width_rect, "height =", height_rect
 
         # Determining top left
         min_x = x1
@@ -274,7 +272,7 @@ class Interface():
         if height_rect + min_y > self.resolution[1] - 101:
             return
         self.tracking_box = pygame.Rect(min_x, min_y, width_rect, height_rect)
-	print"tracking_box", self.tracking_box
+	#print"tracking_box", self.tracking_box
 
     def __sendTrackingBox(self):
         target = Target()
@@ -421,6 +419,12 @@ class Interface():
 			    self.__reset()
                         elif event.key == pygame.K_b:
 			    print "Battery:", self.battery_percent
+	                elif event.key == pygame.K_MINUS:
+        	            self.__switchSpeed( -0.01 ) #edited by Ardillo making it more sensible
+                            print self.speed
+                        elif event.key == pygame.K_EQUALS:
+                            self.__switchSpeed( 0.01 ) #edited by Ardillo making it more sensible
+                            print self.speed
 
 	        self.__draw()
 

@@ -26,6 +26,7 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from tld_msgs.msg import BoundingBox
 from ardrone_autonomy.msg import Navdata
+from tld_msgs.msg import Target
 
 class Interface():
     ''' User Interface for controlling the AR.Drone '''
@@ -66,10 +67,12 @@ class Interface():
         self.publisher_takeOff        = rospy.Publisher(  '/ardrone/takeoff',   Empty )
 	self.publisher_reset	      = rospy.Publisher(  '/ardrone/reset',     Empty ) #edited by Ardillo make a reset possible after over-tilt
         self.publisher_parameters     = rospy.Publisher(  '/cmd_vel',           Twist )
-        self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback_image ) # Front image
-        self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback_image ) # Bottom image
+        self.publisher_tracking_box   = rospy.Publisher(  '/tld_gui_bb',        Target ) #merged from CamielV's repo
+        self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback_camera ) # Front image
+        self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback_camera ) # Bottom image
         self.subscriber_navdata       = rospy.Subscriber( '/ardrone/navdata', Navdata, self.__callback_navdata ) # Navdata
         self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker ) # Tracker
+
         self.parameters               = Twist()
         rospy.init_node( 'interface' )
 
@@ -93,6 +96,16 @@ class Interface():
 	self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
 
 
+        # Tracking box outside of screen
+        self.tracking = False
+        self.tracking_box = None
+
+        # Select box
+        self.selected    = False
+        self.click_loc   = None
+        self.release_loc = None
+        
+
     def __del__(self):
         ''' Destructor of the User Interface'''
         pygame.quit()
@@ -108,6 +121,25 @@ class Interface():
                 if event.type == pygame.QUIT:
                     done = True
                     break
+                # Check if mousebutton is pressed
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if not(self.tracking):
+                            self.selected = True
+                            self.click_loc = event.pos
+                # Check if mousebutton is released
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    # Left mouse button
+                    if event.button == 1:
+                        if not(self.tracking):
+                            self.selected = False
+                            self.release_loc = event.pos
+                            self.__updateSelectBox()
+                # Check if mouse is moved
+                elif event.type == pygame.MOUSEMOTION:
+                    if not(self.tracking) and self.selected:
+                        self.release_loc = event.pos
+                        self.__updateSelectBox()
                 # Check if key is pressed
                 elif event.type == pygame.KEYDOWN:
                     if   event.key == pygame.K_UP:
@@ -128,8 +160,15 @@ class Interface():
                         self.parameters.angular.z = -self.speed
                     elif event.key == pygame.K_c:
                         self.__toggleCam()
+
 		    elif event.key == pygame.K_r: #edited by Ardillo making reset function
 			self.__reset()
+
+                    elif event.key == pygame.K_RETURN: #merged from CamielV's repo
+                        if self.tracking_box:
+                            self.tracking = True
+                            self.__sendTrackingBox()
+
                     elif event.key == pygame.K_MINUS:
                         self.__switchSpeed( -0.01 ) #edited by Ardillo making it more sensible
                         print self.speed
@@ -184,10 +223,56 @@ class Interface():
 	if self.old_seq == self.header_seq: # don't show old rectangles
 	    self.tracking_box = pygame.Rect(641, 461, 1, 1)
 	self.old_seq = self.header_seq
-        pygame.draw.rect( self.background, (0, 0, 255), self.tracking_box, 2 )
-       	pygame.draw.rect( self.background, (100, 100, 100), self.center_box, 1 )
+        if self.tracking_box:
+            pygame.draw.rect( self.background, (0, 0, 255), self.tracking_box, 2 ) #merged from CamielV's repo
+       	pygame.draw.rect( self.background, (100, 100, 100), self.center_box, 1 ) 
         self.screen.blit( self.background, (0, 0) )
         pygame.display.flip()
+
+    def __updateSelectBox(self):
+        if not(self.click_loc and self.release_loc):
+            return
+
+        x1, y1 = self.click_loc
+        x2, y2 = self.release_loc
+
+        # Determining height and width of rect
+        width_rect  = abs(x1 - x2)
+        height_rect = abs(y1 - y2)
+
+        # Determining top left
+        min_x = x1
+        min_y = y1
+        if x1 < x2:
+            if y1 < y2:
+                pass
+            else:
+                min_y = y2
+        else:
+            if y1 < y2:
+                min_x = x2
+            else:
+                min_x = x2
+                min_y = y2
+        if min_x > self.resolution[0]:
+            return
+        if min_y > self.resolution[1] - 100:
+            return
+        if width_rect + min_x > self.resolution[0]:
+            return
+        if height_rect + min_y > self.resolution[1] - 101:
+            return
+        self.tracking_box = pygame.Rect(min_x, min_y, width_rect, height_rect)
+
+    def __sendTrackingBox(self):
+        target = Target()
+        target.bb.x          = self.tracking_box.x
+        target.bb.y          = self.tracking_box.y
+        target.bb.width      = self.tracking_box.width
+        target.bb.height     = self.tracking_box.height
+        target.bb.confidence = 1.0
+        target.img           = self.image
+        self.publisher_tracking_box.publish( target )
 
     def __toggleCam(self):
         ''' Switches between camera feeds of the AR.Drone '''
@@ -208,9 +293,14 @@ class Interface():
         print "Landing"
         self.publisher_land.publish( Empty() )
 
-    def __callback_image(self, raw_image):
+    def __callback_camera(self, raw_image):
         ''' Callback function for the camera feed '''
-        self.image = raw_image
+        if self.tracking or not(self.selected):
+            self.image = raw_image
+
+    def __callback_tracker(self, tracking_box):
+        ''' Callback function for the rectangle'''
+        self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
 
     def __callback_tracker(self, tracking_box):
         ''' Callback function for the rectangle'''
@@ -315,16 +405,18 @@ class Interface():
 	        self.__draw()
 
 
-	    
-	
-
 if __name__ == '__main__':
     ''' Starts up the software '''
     print '\n---> Starting up driver!\n'
     ardrone_driver = Popen( ['rosrun', 'ardrone_autonomy', 'ardrone_driver'])
+    #opentld        = Popen( ['roslaunch', 'tld_tracker', 'ros_tld_tracker.launch'])
     print '\n---> Starting up NLR: AR.Drone Keyboard Inferface!\n'
     GUI = Interface()
-    GUI.run()
+    try:
+        GUI.run()
+    except Exception as e:
+        print "ERROR:", e
     ardrone_driver.kill()
+    #opentld.kill()
     print '\n---> Shutting down driver!\n'
     print '\n---> Ended Successfully!\n'

@@ -9,7 +9,7 @@ https://github.com/AutonomyLab/ardrone_autonomy
 - Install ardrone_autonomy
 - Clone this repository
 - rosmake this module
-- Run it by: rosrun ardrone_interface interface.py
+- Run it by: roslaunch ardrone_interface interface.launch
 
 ## Controls:
 
@@ -37,3 +37,4 @@ a manner that the object, the one you are tracking, will stay in the gray rectan
 ### !! Warning !! 
 This is work in progress and at the moment not all dimensions and steering
 commands are implemented.
+

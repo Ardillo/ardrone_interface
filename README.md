@@ -24,10 +24,19 @@ https://github.com/AutonomyLab/ardrone_autonomy
 * `space`	 :take off / land
 * `c`	:toggle between front camera and bottom camera
 * `r`	:reset/flat trim --> Works in both flight modes 
+* `t`   :reset the tracker, only when tracking. This is actually not necessary. Only for debugging.
 * `-`	:decrease sensibility
 * `+`	:increase sensibility
 * `m`   :toggle between manual_flightmode and autonomous_flightmode
 * `b`   :show batterystatus in percent
+* `enter` :confirms the box you've selected in the videofeed.
+
+## Tracking an object:
+
+We've implemented an other project (github.com/Ronan0912/ros_opentld). We used the trackernode named tld_tracker
+for its algorithm, which is OpenTLD. You can select a bounding box with the mouse in the videofeed of the ARdrone.
+If right it presents a nice green box, when ready you can confirm it with the 'enter' key.
+It sends the bounding box to the tld_tracker node. For doing this you have to run the tld_tracker node as well of course.
 
 ## Autonomous_flightmode:
 

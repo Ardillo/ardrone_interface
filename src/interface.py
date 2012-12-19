@@ -445,11 +445,11 @@ class Interface():
 			    self.parameters.linear.x = 0
 			    self.publisher_parameters.publish( self.parameters )
 
-			if self.altitude < self.start_altitude -50 :
+			if self.altitude < self.start_altitude -10 :
 			    print "to Low, correcting myself"
 			    self.parameters.linear.z = 2 * self.speed  * self.confidence
 			    self.publisher_parameters.publish( self.parameters )
-			elif self.altitude > self.start_altitude +50:
+			elif self.altitude > self.start_altitude +10:
 			    print "to High, correcting myself"
 			    self.parameters.linear.z = 2 * -self.speed * self.confidence	
 			    self.publisher_parameters.publish( self.parameters )	

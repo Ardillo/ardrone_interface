@@ -96,6 +96,12 @@ class Interface():
 	self.center_box_width = 128  #64 #128 #192 #256
 	self.center_box_height = 92 #46 #92  #138 #184
 	self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
+	self.key_5 = False
+	self.key_6 = False
+	self.key_7 = False
+	self.key_8 = False
+	self.key_9 = False
+	self.key_0 = False
 
 
         # Tracking box outside of screen
@@ -118,7 +124,32 @@ class Interface():
         print "Starting NLR: AR.Drone Keyboard Interface"
         done = False
 
+	# resolution videofeed = 640 x 360
+	self.center_box_width = 64  #64 #128 #192 #256
+	self.center_box_height = 46 #46 #92  #138 #184
+	self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
+
+
         while not(done):
+	    # measurementbox has to change
+	    if self.key_5 and self.center_box_width > 1 and self.center_box_height > 1:
+		self.center_box_width -= 1
+		self.center_box_height -= 1			
+	    elif self.key_6 and self.center_box_width <= (640 -1) and self.center_box_height <= (360 -1):
+		self.center_box_width += 1
+		self.center_box_height += 1			
+	    elif self.key_7 and self.center_box_width > 1:
+		self.center_box_width -= 1
+	    elif self.key_8 and self.center_box_width <= (640 -1):
+		self.center_box_width += 1
+	    elif self.key_9 and self.center_box_height > 1:
+		self.center_box_height -= 1
+	    elif self.key_0 and self.center_box_height <= (360 -1):
+		self.center_box_height += 1
+	    self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
+
+
+
             for event in pygame.event.get():
                 # Check if window is quit
                 if event.type == pygame.QUIT:
@@ -144,6 +175,7 @@ class Interface():
                     if not(self.tracking) and self.selected:
                         self.release_loc = event.pos
                         self.__updateSelectBox()
+
                 # Check if key is pressed
                 elif event.type == pygame.KEYDOWN:
                     if   event.key == pygame.K_UP:
@@ -167,7 +199,36 @@ class Interface():
 
 		    elif event.key == pygame.K_r: #edited by Ardillo making reset function
 			self.__reset()
-		    
+			
+		    elif event.key == pygame.K_1:  #edited by Ardillo making measurementbox realtime adjustable
+			self.center_box_width = 64  
+			self.center_box_height = 46 
+			self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
+		    elif event.key == pygame.K_2:
+			self.center_box_width = 128 
+			self.center_box_height = 92 
+			self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
+		    elif event.key == pygame.K_3:
+			self.center_box_width = 192 
+			self.center_box_height = 138
+			self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
+		    elif event.key == pygame.K_4:
+		    	self.center_box_width = 256 
+			self.center_box_height = 184
+			self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
+		    elif event.key == pygame.K_5:
+			self.key_5 = True
+		    elif event.key == pygame.K_6:
+			self.key_6 = True
+		    elif event.key == pygame.K_7:
+			self.key_7 = True
+		    elif event.key == pygame.K_8:
+			self.key_8 = True
+		    elif event.key == pygame.K_9:
+			self.key_9 = True
+		    elif event.key == pygame.K_0:
+			self.key_0 = True
+
                     elif event.key == pygame.K_RETURN: #merged from CamielV's repo
                         if self.tracking_box:
                             self.tracking = True
@@ -220,6 +281,18 @@ class Interface():
                         self.parameters.linear.z = 0
                     elif event.key == pygame.K_d:
                         self.parameters.angular.z = 0
+		    elif event.key == pygame.K_5:
+			self.key_5 = False
+		    elif event.key == pygame.K_6:
+			self.key_6 = False
+		    elif event.key == pygame.K_7:
+			self.key_7 = False
+		    elif event.key == pygame.K_8:
+			self.key_8 = False
+		    elif event.key == pygame.K_9:
+			self.key_9 = False
+		    elif event.key == pygame.K_0:
+			self.key_0 = False
 
             self.publisher_parameters.publish( self.parameters )
             self.__draw()

@@ -27,6 +27,7 @@ from sensor_msgs.msg import Image
 from tld_msgs.msg import BoundingBox
 from ardrone_autonomy.msg import Navdata
 from tld_msgs.msg import Target
+from datetime import datetime
 
 class Interface():
     ''' User Interface for controlling the AR.Drone '''
@@ -59,8 +60,6 @@ class Interface():
         self.background.blit( self.logo, self.logo_rect )
         self.screen.blit( self.background, (0,0) )
         pygame.display.flip()
-
-	#self.firstTime = True
 	
         # ROS Settings
         self.publisher_land           = rospy.Publisher(  '/ardrone/land',      Empty )
@@ -72,7 +71,7 @@ class Interface():
         self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback_camera ) # Bottom image
         self.subscriber_navdata       = rospy.Subscriber( '/ardrone/navdata', Navdata, self.__callback_navdata ) # Navdata
         self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker ) # Tracker
-
+	self.publisher_reset_tracker  = rospy.Publisher(  '/tld_gui_cmds', String)      
         self.parameters               = Twist()
         rospy.init_node( 'interface' )
 
@@ -83,6 +82,7 @@ class Interface():
 	self.manual_flightmode = True
 	self.confidence = None 	#confidence variable by Ardillo, has to be in front of ROS Settings.
 	self.header_seq = None
+	self.header_sec = None
 	self.old_seq = None
 	self.battery_percent = None
         self.init_width = None
@@ -91,8 +91,8 @@ class Interface():
         # Tracking box
         self.returning_tracking_box = pygame.Rect(641, 461, 1, 1)
 	# resolution videofeed = 640 x 360
-	self.center_box_width = 64 #128 #256
-	self.center_box_height = 46 #92 #184
+	self.center_box_width = 192  #64 #128 #192 #256
+	self.center_box_height = 138 #46 #92  #138 #184
 	self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
 
 
@@ -104,6 +104,7 @@ class Interface():
         self.selected    = False
         self.click_loc   = None
         self.release_loc = None
+	self.select_image = None
         
 
     def __del__(self):
@@ -127,6 +128,7 @@ class Interface():
                         if not(self.tracking):
                             self.selected = True
                             self.click_loc = event.pos
+			    self.select_image = self.image
                 # Check if mousebutton is released
                 elif event.type == pygame.MOUSEBUTTONUP:
                     # Left mouse button
@@ -151,28 +153,30 @@ class Interface():
                     elif event.key == pygame.K_RIGHT:
                         self.parameters.linear.y = -self.speed
                     elif event.key == pygame.K_w:
-                        self.parameters.linear.z = self.speed
+                        self.parameters.linear.z = 2 *self.speed
                     elif event.key == pygame.K_a:
-                        self.parameters.angular.z = self.speed
+                        self.parameters.angular.z = 2 * self.speed
                     elif event.key == pygame.K_s:
-                        self.parameters.linear.z = -self.speed
+                        self.parameters.linear.z = 2 * -self.speed
                     elif event.key == pygame.K_d:
-                        self.parameters.angular.z = -self.speed
+                        self.parameters.angular.z = 2 * -self.speed
                     elif event.key == pygame.K_c:
                         self.__toggleCam()
 
 		    elif event.key == pygame.K_r: #edited by Ardillo making reset function
 			self.__reset()
-
+		    
                     elif event.key == pygame.K_RETURN: #merged from CamielV's repo
                         if self.tracking_box:
                             self.tracking = True
                             self.__sendTrackingBox()
-		    elif event.key == pygame.K_t: # tracker reset by Ardillo
+		    elif event.key == pygame.K_t: # tracker reset by Ardillo --not working properly-- TODO
 			if self.tracking == True:
-			   print"Resetting tracker"
-			   self.tracking_box = None
-			   self.tracking = False
+			    print"Resetting tracker"
+			    self.tracking_box = None
+			    self.tracking = False
+			str = "r"
+			self.publisher_reset_tracker.publish(String(str))
 
                     elif event.key == pygame.K_MINUS:
                         self.__switchSpeed( -0.01 ) #edited by Ardillo making it more sensible
@@ -282,7 +286,7 @@ class Interface():
         target.bb.height     = self.tracking_box.height
         target.bb.confidence = 1.0
 	#print "Target  =" , target
-        target.img           = self.image
+        target.img           = self.select_image
         self.publisher_tracking_box.publish( target )
 	print "Bounding box send" 
 	print "ARdrone says: 'I'm resetting myself for new input if necessary'" #\o/
@@ -324,11 +328,7 @@ class Interface():
 	self.returning_tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
 	self.confidence = tracking_box.confidence # got the confidence variable, for future use. By Ardillo
 	self.header_seq = tracking_box.header.seq
-        #if self.firstTime and self.header_seq == 1:
-  	    #self.init_width = self.tracking_box.width
-            #self.init_height = self.tracking_box.height
-	    #print "init box stored"
-            #self.firstTime = False  	
+	self.header_sec = tracking_box.header.stamp.secs	
 
     def __callback_navdata(self, navdata):
         ''' Callback function for the camera feed '''
@@ -352,7 +352,24 @@ class Interface():
 	done = False
 	firstTime = True
 	offset = 20
+	self.goLeft = False
+	self.goRight = False
+        self.goBackward = False
+        self.goForward = False
+	self.goUp = False
+	self.goDown = False
+        self.startTime = datetime.now()
+	self.noTrackTime = datetime.now()
 	while not(done):
+		
+		if not firstTime:
+	    	    if self.startTime < self.noTrackTime:
+		    	if abs(self.startTime - self.noTrackTime ).seconds > 2:			
+	            	    print "It took to long" , abs(self.startTime - self.noTrackTime ).seconds , "seconds"
+                    	    self.parameters.linear.x = 0
+	 	    	    self.parameters.linear.y = 0
+		    	    self.parameters.linear.z = 0
+	    	    	    self.publisher_parameters.publish( self.parameters )
 
 		# check location of Bounding box.
 	    	if self.returning_tracking_box.x <= 640 and self.returning_tracking_box.y <= 460:
@@ -363,47 +380,121 @@ class Interface():
 
 		    self.center_tracking_box_x = self.returning_tracking_box.x + (self.returning_tracking_box.width / 2)
 		    self.center_tracking_box_y = self.returning_tracking_box.y + (self.returning_tracking_box.height / 2)
-
+		    
+		    	
 		    if self.old_seq != self.header_seq:	# only when tracking node publishes a new image
-			
+ 			self.startTime = datetime.now()
+			# # A factor from 0 - 1 for being not centered.
 			self.factor_x = float(abs(self.center_tracking_box_x - 320))/320
-			self.factor_y = float(abs(self.center_tracking_box_y - 180))/180
+			self.factor_y = float(abs(self.center_tracking_box_y - 230))/230
 			print "factor X:" , self.factor_x , "factor Y:" , self.factor_y			
 			
+			## Main steering signals
 			if self.center_tracking_box_x < self.center_box.x:
-		            print "strafe Left !"
-		            self.parameters.linear.y = self.speed * self.confidence
+		            print "turn Left"
+			    self.goLeft = True
+		            self.parameters.angular.z = 2 * self.speed * self.confidence #* self.factor_x
+	                    self.publisher_parameters.publish( self.parameters )
 			elif self.center_tracking_box_x > (self.center_box.x + self.center_box.width):
-			    print "strafe Right !"
-		            self.parameters.linear.y = -self.speed * self.confidence
+			    print "turn Right"
+			    self.goRight = True
+		            self.parameters.angular.z = 2 * -self.speed * self.confidence #* self.factor_x
+                            self.publisher_parameters.publish( self.parameters )
 			else:
-			    self.parameters.linear.y = 0
+			    self.parameters.angular.z = 0
+                            self.publisher_parameters.publish( self.parameters )
 
 		    	if self.center_tracking_box_y < self.center_box.y:
-		            print "go Up !"
-		            self.parameters.linear.z = self.speed * self.confidence
+		            print "go Forward"
+			    self.goForward = True
+		            self.parameters.linear.x = self.speed * self.confidence * self.factor_y
+                            self.publisher_parameters.publish( self.parameters )
 			elif self.center_tracking_box_y > (self.center_box.y + self.center_box.height):
-		            print "go Down !"
-		            self.parameters.linear.z = -self.speed * self.confidence
+		            print "go Backward"
+			    self.goBackward = True
+		            self.parameters.linear.x = -self.speed * self.confidence * self.factor_y
+			    self.publisher_parameters.publish( self.parameters )
 			else:
-			    self.parameters.linear.z = 0
-			
-			if (self.returning_tracking_box.width + offset) < self.init_width or (self.returning_tracking_box.height + offset) < self.init_height:
-			    print "go Forward !"
-			    self.parameters.linear.x = self.speed * self.confidence
-			elif (self.returning_tracking_box.width - offset) > self.init_width or (self.returning_tracking_box.height - offset) > self.init_height:
-			    print "go Backward !"
-			    self.parameters.linear.x = -self.speed * self.confidence
-			else:			    	
 			    self.parameters.linear.x = 0
-		    
-		    self.publisher_parameters.publish( self.parameters )		    
+                            self.publisher_parameters.publish( self.parameters )	
+
+			if (self.returning_tracking_box.width + offset) < self.init_width or (self.returning_tracking_box.height + offset) < self.init_height:
+			    print "go Up"
+			    self.goUp = True
+			    self.parameters.linear.z = self.speed  * self.confidence
+			    self.publisher_parameters.publish( self.parameters )
+			elif (self.returning_tracking_box.width - offset) > self.init_width or (self.returning_tracking_box.height - offset) > self.init_height:
+			    print "go Down"
+			    self.goDown = True
+			    self.parameters.linear.z = -self.speed * self.confidence
+			    self.publisher_parameters.publish( self.parameters )
+			else:			    	
+			    self.parameters.linear.z = 0
+		            self.publisher_parameters.publish( self.parameters )
+			
+			## Correction if object is near the center_box
+			if self.center_tracking_box_x > self.center_box.x and self.center_tracking_box_x < (self.center_box.x + self.center_box.width):
+			    self.parameters.linear.y = 0
+			    self.publisher_parameters.publish( self.parameters )
+			
+			if self.center_tracking_box_y > self.center_box.y and self.center_tracking_box_y < (self.center_box.y + self.center_box.height):
+			    self.parameters.linear.x = 0
+			    self.publisher_parameters.publish( self.parameters )
+		else:
+		    self.noTrackTime = datetime.now()   		    		    
+		
+
+#			    if self.goRight:
+#				print "correct Left"
+#				self.goRight = False
+#				self.parameters.linear.y = 2
+#				self.publisher_parameters.publish( self.parameters )
+#			    if self.goLeft:
+#				print "correct Right"
+#				self.goLeft = False
+#				self.parameters.linear.y = -2		    
+#				self.publisher_parameters.publish( self.parameters )
+#			    if self.goUp:
+#				print "correct Down"
+#				self.goUp = False
+#				self.parameters.linear.z = -0.05
+#				self.publisher_parameters.publish( self.parameters )
+#			    if self.goDown:
+#				print "correct Up"
+#				self.goDown = False
+#				self.parameters.linear.z = 0.05
+#				self.publisher_parameters.publish( self.parameters )
+
+# Small steering signals --Don't work--
+#			    if self.center_tracking_box_x < 320:
+#				print "little Left"
+#				self.parameters.linear.y = 0.05
+#   			    elif self.center_tracking_box_x > 320:
+#				print "little Right"
+#				self.parameters.linear.y = -0.05
+#			    else:
+#				self.parameters.linear.y = 0		
+#
+#			    if self.center_tracking_box_y < 230:
+#				print "little Up"
+#				self.parameters.linear.z = 0.05
+#			    elif self.center_tracking_box_y > 230:
+#				print "little Down"
+#				self.parameters.linear.z = -0.05
+#			    else:
+#				self.parameters.linear.z = 0
+#	
+#			self.publisher_parameters.publish( self.parameters )
+
+			
+					    
 
 	        for event in pygame.event.get():
         	    # Check if window is quit
         	    if event.type == pygame.QUIT:
         	        done = True
         	        break
+			break
         	    # Check if key is pressed
         	    elif event.type == pygame.KEYDOWN:
 		        if  event.key == pygame.K_m:
@@ -441,6 +532,6 @@ if __name__ == '__main__':
     except Exception as e:
         print "ERROR:", e
     ardrone_driver.kill()
-    #opentld.kill()
+    #ros_tld_tracker.kill()
     print '\n---> Shutting down driver!\n'
     print '\n---> Ended Successfully!\n'

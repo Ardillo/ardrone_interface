@@ -30,6 +30,16 @@ https://github.com/AutonomyLab/ardrone_autonomy
 * `m`   :toggle between manual_flightmode and autonomous_flightmode
 * `b`   :show batterystatus in percent
 * `enter` :confirms the box you've selected in the videofeed.
+* `1`	: small center_box
+* `2`	: medium small center_box
+* `3`	: medium center_box
+* `4`	: medium big center_box
+* `5`	: center_box width and height -1 
+* `6`	: center_box width and height +1
+* `7`	: center_box width -1
+* `8`	: center_box width +1
+* `9`	: center_box height -1
+* `0`	: center_box height +1
 
 ## Tracking an object:
 

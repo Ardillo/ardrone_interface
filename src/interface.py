@@ -29,6 +29,7 @@ from ardrone_autonomy.msg import Navdata
 from tld_msgs.msg import Target
 from datetime import datetime
 
+
 class Interface():
     ''' User Interface for controlling the AR.Drone '''
 
@@ -67,11 +68,11 @@ class Interface():
 	self.publisher_reset	      = rospy.Publisher(  '/ardrone/reset',     Empty ) #edited by Ardillo make a reset possible after over-tilt
         self.publisher_parameters     = rospy.Publisher(  '/cmd_vel',           Twist )
         self.publisher_tracking_box   = rospy.Publisher(  '/tld_gui_bb',        Target ) #merged from CamielV's repo
+	self.publisher_reset_tracker  = rospy.Publisher(  '/tld_gui_cmds', String)
         self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback_camera ) # Front image
         self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback_camera ) # Bottom image
         self.subscriber_navdata       = rospy.Subscriber( '/ardrone/navdata', Navdata, self.__callback_navdata ) # Navdata
-        self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker ) # Tracker
-	self.publisher_reset_tracker  = rospy.Publisher(  '/tld_gui_cmds', String)      
+        self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker ) # Tracker      
         self.parameters               = Twist()
         rospy.init_node( 'interface' )
 
@@ -85,14 +86,15 @@ class Interface():
 	self.header_sec = None
 	self.old_seq = None
 	self.battery_percent = None
+	self.altitude = None
         self.init_width = None
         self.init_height = None
 
         # Tracking box
         self.returning_tracking_box = pygame.Rect(641, 461, 1, 1)
 	# resolution videofeed = 640 x 360
-	self.center_box_width = 192  #64 #128 #192 #256
-	self.center_box_height = 138 #46 #92  #138 #184
+	self.center_box_width = 128  #64 #128 #192 #256
+	self.center_box_height = 92 #46 #92  #138 #184
 	self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
 
 
@@ -153,11 +155,11 @@ class Interface():
                     elif event.key == pygame.K_RIGHT:
                         self.parameters.linear.y = -self.speed
                     elif event.key == pygame.K_w:
-                        self.parameters.linear.z = 2 *self.speed
+                        self.parameters.linear.z = 3 *self.speed
                     elif event.key == pygame.K_a:
                         self.parameters.angular.z = 2 * self.speed
                     elif event.key == pygame.K_s:
-                        self.parameters.linear.z = 2 * -self.speed
+                        self.parameters.linear.z = 3 * -self.speed
                     elif event.key == pygame.K_d:
                         self.parameters.angular.z = 2 * -self.speed
                     elif event.key == pygame.K_c:
@@ -333,6 +335,7 @@ class Interface():
     def __callback_navdata(self, navdata):
         ''' Callback function for the camera feed '''
         self.battery_percent = navdata.batteryPercent
+	self.altitude = navdata.altd
 
 
     def __switchSpeed( self, speed ):
@@ -377,6 +380,7 @@ class Interface():
 			self.init_width = self.returning_tracking_box.width
 			self.init_height = self.returning_tracking_box.height
 			firstTime = False
+			self.start_altitude = self.altitude
 
 		    self.center_tracking_box_x = self.returning_tracking_box.x + (self.returning_tracking_box.width / 2)
 		    self.center_tracking_box_y = self.returning_tracking_box.y + (self.returning_tracking_box.height / 2)
@@ -440,6 +444,15 @@ class Interface():
 			if self.center_tracking_box_y > self.center_box.y and self.center_tracking_box_y < (self.center_box.y + self.center_box.height):
 			    self.parameters.linear.x = 0
 			    self.publisher_parameters.publish( self.parameters )
+
+			if self.altitude < self.start_altitude -50 :
+			    print "to Low, correcting myself"
+			    self.parameters.linear.z = 2 * self.speed  * self.confidence
+			    self.publisher_parameters.publish( self.parameters )
+			elif self.altitude > self.start_altitude +50:
+			    print "to High, correcting myself"
+			    self.parameters.linear.z = 2 * -self.speed * self.confidence	
+			    self.publisher_parameters.publish( self.parameters )	
 		else:
 		    self.noTrackTime = datetime.now()   		    		    
 		

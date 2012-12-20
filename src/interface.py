@@ -24,6 +24,7 @@ from pygame.locals import *
 from std_msgs.msg import *
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
+from sensor_msgs.msg import Imu
 from tld_msgs.msg import BoundingBox
 from ardrone_autonomy.msg import Navdata
 from tld_msgs.msg import Target
@@ -72,6 +73,7 @@ class Interface():
         self.subscriber_camera_front  = rospy.Subscriber( '/ardrone/front/image_raw',  Image, self.__callback_camera ) # Front image
         self.subscriber_camera_bottom = rospy.Subscriber( '/ardrone/bottom/image_raw', Image, self.__callback_camera ) # Bottom image
         self.subscriber_navdata       = rospy.Subscriber( '/ardrone/navdata', Navdata, self.__callback_navdata ) # Navdata
+	self.subscriber_imu           = rospy.Subscriber( '/ardrone/imu', Imu, self.__callback_imu ) # Imu
         self.subscriber_tracker       = rospy.Subscriber( '/tld_tracked_object', BoundingBox, self.__callback_tracker ) # Tracker      
         self.parameters               = Twist()
         rospy.init_node( 'interface' )
@@ -134,18 +136,24 @@ class Interface():
 	    # measurementbox has to change
 	    if self.key_5 and self.center_box_width > 1 and self.center_box_height > 1:
 		self.center_box_width -= 1
-		self.center_box_height -= 1			
+		self.center_box_height -= 1
+                print "width:" , self.center_box_width , "height:" , self.center_box_height			
 	    elif self.key_6 and self.center_box_width <= (640 -1) and self.center_box_height <= (360 -1):
 		self.center_box_width += 1
 		self.center_box_height += 1			
+                print "width:" , self.center_box_width , "height:" , self.center_box_height
 	    elif self.key_7 and self.center_box_width > 1:
 		self.center_box_width -= 1
+                print "width:" , self.center_box_width , "height:" , self.center_box_height
 	    elif self.key_8 and self.center_box_width <= (640 -1):
 		self.center_box_width += 1
+                print "width:" , self.center_box_width , "height:" , self.center_box_height
 	    elif self.key_9 and self.center_box_height > 1:
 		self.center_box_height -= 1
+                print "width:" , self.center_box_width , "height:" , self.center_box_height
 	    elif self.key_0 and self.center_box_height <= (360 -1):
 		self.center_box_height += 1
+                print "width:" , self.center_box_width , "height:" , self.center_box_height
 	    self.center_box = pygame.Rect((320-(self.center_box_width/2)), (180-(self.center_box_height/2)), self.center_box_width, self.center_box_height )
 
 
@@ -364,7 +372,6 @@ class Interface():
         target.img           = self.select_image
         self.publisher_tracking_box.publish( target )
 	print "Bounding box send" 
-	print "ARdrone says: 'I'm resetting myself for new input if necessary'" #\o/
         self.clock.tick(100)
 	self.tracking_box = None
 	self.tracking = False
@@ -396,10 +403,6 @@ class Interface():
 
     def __callback_tracker(self, tracking_box):
         ''' Callback function for the rectangle'''
-        self.tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
-
-    def __callback_tracker(self, tracking_box):
-        ''' Callback function for the rectangle'''
 	self.returning_tracking_box = pygame.Rect( tracking_box.x, tracking_box.y, tracking_box.width, tracking_box.height )
 	self.confidence = tracking_box.confidence # got the confidence variable, for future use. By Ardillo
 	self.header_seq = tracking_box.header.seq
@@ -409,7 +412,24 @@ class Interface():
         ''' Callback function for the camera feed '''
         self.battery_percent = navdata.batteryPercent
 	self.altitude = navdata.altd
-
+   
+    def __callback_imu(self, imudata):
+	''' Callback for the imu data feed ''' # feedback from IMU, used for making PID controller
+	self.orientation_x = abs(imudata.orientation.x) * 10
+	self.orientation_x = 1 - self.orientation_x
+	if self.orientation_x < 0:
+	    self.orientation_x = 0
+	self.orientation_y = abs(imudata.orientation.y)	* 10
+	self.orientation_y = 1 - self.orientation_y
+	if self.orientation_y < 0:
+	    self.orientation_y = 0  
+	self.orientation_compass = imudata.orientation.z # from 0--1=-1--0
+	self.linear_acceleration_x = imudata.linear_acceleration.x 
+	self.linear_acceleration_y = imudata.linear_acceleration.y 
+	self.linear_acceleration_z = imudata.linear_acceleration.z 
+	#print "x:" , self.linear_acceleration_x , " y:" , self.linear_acceleration_y , " z:" , self.linear_acceleration_z
+	#print "orientation x:" , self.orientation_x , " y:" , self.orientation_y
+	#print "compass:" , self.orientation_compass
 
     def __switchSpeed( self, speed ):
         new_speed = self.speed + speed
@@ -429,6 +449,8 @@ class Interface():
 	firstTime = True
 	offset = 20
 	self.goLeft = False
+	self.strafeLeft = False
+	self.strafeRight = False
 	self.goRight = False
         self.goBackward = False
         self.goForward = False
@@ -436,15 +458,18 @@ class Interface():
 	self.goDown = False
         self.startTime = datetime.now()
 	self.noTrackTime = datetime.now()
+	self.Left_timer = 0
+	self.Right_timer = 0
 	while not(done):
 		
 		if not firstTime:
 	    	    if self.startTime < self.noTrackTime:
-		    	if abs(self.startTime - self.noTrackTime ).seconds > 2:			
-	            	    print "It took to long" , abs(self.startTime - self.noTrackTime ).seconds , "seconds"
+		    	if abs(self.startTime - self.noTrackTime ).seconds > 1:			
+	            	    print "no Track for" , abs(self.startTime - self.noTrackTime ).seconds , "seconds"
                     	    self.parameters.linear.x = 0
 	 	    	    self.parameters.linear.y = 0
 		    	    self.parameters.linear.z = 0
+			    self.parameters.angular.z = 0
 	    	    	    self.publisher_parameters.publish( self.parameters )
 
 		# check location of Bounding box.
@@ -454,6 +479,7 @@ class Interface():
 			self.init_height = self.returning_tracking_box.height
 			firstTime = False
 			self.start_altitude = self.altitude
+			self.heading_at_start = self.orientation_compass
 
 		    self.center_tracking_box_x = self.returning_tracking_box.x + (self.returning_tracking_box.width / 2)
 		    self.center_tracking_box_y = self.returning_tracking_box.y + (self.returning_tracking_box.height / 2)
@@ -461,21 +487,77 @@ class Interface():
 		    	
 		    if self.old_seq != self.header_seq:	# only when tracking node publishes a new image
  			self.startTime = datetime.now()
-			# # A factor from 0 - 1 for being not centered.
+			# # A factor from 0 - 1 for being not centered. Used for PID controller (P proportional)
 			self.factor_x = float(abs(self.center_tracking_box_x - 320))/320
 			self.factor_y = float(abs(self.center_tracking_box_y - 230))/230
-			print "factor X:" , self.factor_x , "factor Y:" , self.factor_y			
+			#print "factor X:" , self.factor_x , "factor Y:" , self.factor_y			
 			
 			## Main steering signals
-			if self.center_tracking_box_x < self.center_box.x:
-		            print "turn Left"
+
+			#testing code with compass
+			'''print "heading" , self.heading_at_start
+			if self.heading_at_start < 0:
+			    # right side of scale
+			    if self.orientation_compass < self.heading_at_start:
+  		                print "turn Left"
+			    	self.goLeft = True
+			    	self.integral_factor = self.orientation_x
+		            	self.parameters.angular.z = 2 * self.speed * self.factor_x * self.integral_factor
+	                    	self.publisher_parameters.publish( self.parameters )
+			    elif self.orientation_compass > self.heading_at_start:
+				print "turn Right"
+			    	self.goRight = True
+			    	self.integral_factor = self.orientation_x
+		            	self.parameters.angular.z = 2 * -self.speed * self.factor_x * self.integral_factor
+                            	self.publisher_parameters.publish( self.parameters )
+			elif self.heading_at_start > 0:
+			    # left side of scale
+			    if self.orientation_compass < self.heading_at_start:
+				print "turn Right"
+			    	self.goRight = True
+			    	self.integral_factor = self.orientation_x
+		            	self.parameters.angular.z = 2 * -self.speed * self.factor_x * self.integral_factor
+                            	self.publisher_parameters.publish( self.parameters )
+			    elif self.orientation_compass > self.heading_at_start:			     
+  		                print "turn Left"
+			    	self.goLeft = True
+			    	self.integral_factor = self.orientation_x
+		            	self.parameters.angular.z = 2 * self.speed * self.factor_x * self.integral_factor
+	                    	self.publisher_parameters.publish( self.parameters )
+			else:
+			    self.parameters.angular.z = 0
+                            self.publisher_parameters.publish( self.parameters ) '''
+			
+ 			# testing code
+			if self.Left_timer > 3:
+		            print "strafe Left"
+			    self.strafeLeft = True
+			    self.Left_timer = 0
+			    self.integral_factor = self.orientation_x
+		            self.parameters.linear.y = self.speed * self.factor_x * self.integral_factor
+	                    self.publisher_parameters.publish( self.parameters )
+			elif self.Right_timer > 3:
+			    print "strafe Right"
+			    self.strafeLeft = True
+			    self.Right_timer = 0
+			    self.integral_factor = self.orientation_x
+		            self.parameters.linear.y = -self.speed * self.factor_x * self.integral_factor
+                            self.publisher_parameters.publish( self.parameters )
+			else:
+			    self.parameters.linear.y = 0
+                            self.publisher_parameters.publish( self.parameters )
+
+                        if self.center_tracking_box_x < self.center_box.x:
+  		            print "turn Left"
 			    self.goLeft = True
-		            self.parameters.angular.z = 2 * self.speed * self.confidence #* self.factor_x
+			    self.Left_timer += 1
+		            self.parameters.angular.z = 2 * self.speed * self.factor_x 
 	                    self.publisher_parameters.publish( self.parameters )
 			elif self.center_tracking_box_x > (self.center_box.x + self.center_box.width):
 			    print "turn Right"
 			    self.goRight = True
-		            self.parameters.angular.z = 2 * -self.speed * self.confidence #* self.factor_x
+			    self.Right_timer += 1
+		            self.parameters.angular.z = 2 * -self.speed * self.factor_x 
                             self.publisher_parameters.publish( self.parameters )
 			else:
 			    self.parameters.angular.z = 0
@@ -484,12 +566,15 @@ class Interface():
 		    	if self.center_tracking_box_y < self.center_box.y:
 		            print "go Forward"
 			    self.goForward = True
-		            self.parameters.linear.x = self.speed * self.confidence * self.factor_y
+			    self.integral_factor = self.orientation_y
+		            self.parameters.linear.x = 0.5 * self.speed * self.factor_y * self.integral_factor
                             self.publisher_parameters.publish( self.parameters )
 			elif self.center_tracking_box_y > (self.center_box.y + self.center_box.height):
 		            print "go Backward"
 			    self.goBackward = True
-		            self.parameters.linear.x = -self.speed * self.confidence * self.factor_y
+			    self.integral_factor = self.orientation_y
+		            self.parameters.linear.y = - self.speed * self.factor_x * self.integral_factor
+		            self.parameters.linear.x = 2 * -self.speed * self.confidence * self.factor_y
 			    self.publisher_parameters.publish( self.parameters )
 			else:
 			    self.parameters.linear.x = 0
@@ -511,45 +596,50 @@ class Interface():
 			
 			## Correction if object is near the center_box
 			if self.center_tracking_box_x > self.center_box.x and self.center_tracking_box_x < (self.center_box.x + self.center_box.width):
+			    if self.strafeLeft:
+				print "Correct Right"
+				self.strafeLeft = False
+				self.parameters.linear.y = -0.3
+				self.publisher_parameters.publish( self.parameters )
+			    if self.strafeRight:
+				print "Correct Left"
+				self.strafeRight = False
+				self.parameters.linear.y = 0.3
+				self.publisher_parameters.publish( self.parameters )
 			    self.parameters.linear.y = 0
+			    self.parameters.angular.z = 0
 			    self.publisher_parameters.publish( self.parameters )
 			
 			if self.center_tracking_box_y > self.center_box.y and self.center_tracking_box_y < (self.center_box.y + self.center_box.height):
+			    if self.goForward:
+				print "correct Backward"
+				self.goForward = False
+				self.parameters.linear.x = -0.3
+				self.publisher_parameters.publish( self.parameters )
+			    if self.goBackward:
+				print "correct Forward"
+				self.goBackward = False
+				self.parameters.linear.x = 0.3
+				self.publisher_parameters.publish( self.parameters )
 			    self.parameters.linear.x = 0
 			    self.publisher_parameters.publish( self.parameters )
 
-			if self.altitude < self.start_altitude -10 :
-			    print "to Low, correcting myself"
-			    self.parameters.linear.z = 2 * self.speed  * self.confidence
-			    self.publisher_parameters.publish( self.parameters )
-			elif self.altitude > self.start_altitude +10:
-			    print "to High, correcting myself"
-			    self.parameters.linear.z = 2 * -self.speed * self.confidence	
-			    self.publisher_parameters.publish( self.parameters )	
+		    	if self.altitude < self.start_altitude - 75:
+		    	    print "to Low, correcting myself"
+		    	    self.parameters.linear.z = self.speed 
+		    	    self.publisher_parameters.publish( self.parameters )
+		    	elif self.altitude > self.start_altitude + 75:
+		    	    print "to High, correcting myself"
+		    	    self.parameters.linear.z = -self.speed 	
+		    	    self.publisher_parameters.publish( self.parameters )
 		else:
-		    self.noTrackTime = datetime.now()   		    		    
+		    self.noTrackTime = datetime.now() 
+
+		    
+  		    		    
 		
 
-#			    if self.goRight:
-#				print "correct Left"
-#				self.goRight = False
-#				self.parameters.linear.y = 2
-#				self.publisher_parameters.publish( self.parameters )
-#			    if self.goLeft:
-#				print "correct Right"
-#				self.goLeft = False
-#				self.parameters.linear.y = -2		    
-#				self.publisher_parameters.publish( self.parameters )
-#			    if self.goUp:
-#				print "correct Down"
-#				self.goUp = False
-#				self.parameters.linear.z = -0.05
-#				self.publisher_parameters.publish( self.parameters )
-#			    if self.goDown:
-#				print "correct Up"
-#				self.goDown = False
-#				self.parameters.linear.z = 0.05
-#				self.publisher_parameters.publish( self.parameters )
+
 
 # Small steering signals --Don't work--
 #			    if self.center_tracking_box_x < 320:

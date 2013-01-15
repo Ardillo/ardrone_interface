@@ -441,13 +441,15 @@ class Interface():
 	print "Resetting"
 	self.publisher_reset.publish( Empty() )
 
-    def __trackObject(self):			# making an automated flight procedure by Ardillo, NO CONTROLS POSSIBLE EXCEPT EMERGENCY RESET
+
+	# making an automated flight procedure by Ardillo, NO CONTROLS POSSIBLE EXCEPT EMERGENCY RESET
+    def __trackObject(self):			
 	''' Track the target '''
 	print "In autonomous_flightmode"
 	print "ARdrone says: 'I can handle it myself'"
 	done = False
 	firstTime = True
-	offset = 20
+	offset = 20				# in te stellen voor elevator-as
 	self.goLeft = False
 	self.strafeLeft = False
 	self.strafeRight = False
@@ -462,6 +464,7 @@ class Interface():
 	self.Right_timer = 0
 	while not(done):
 		
+		# Fallback if object is lost longer than 1 second
 		if not firstTime:
 	    	    if self.startTime < self.noTrackTime:
 		    	if abs(self.startTime - self.noTrackTime ).seconds > 1:			
@@ -528,7 +531,7 @@ class Interface():
 			    self.parameters.angular.z = 0
                             self.publisher_parameters.publish( self.parameters ) '''
 			
- 			# testing code
+ 			# testing code (steering commands for Roll)
 			if self.Left_timer > 3:
 		            print "strafe Left"
 			    self.strafeLeft = True
@@ -538,7 +541,7 @@ class Interface():
 	                    self.publisher_parameters.publish( self.parameters )
 			elif self.Right_timer > 3:
 			    print "strafe Right"
-			    self.strafeLeft = True
+			    self.strafeRight = True
 			    self.Right_timer = 0
 			    self.integral_factor = self.orientation_x
 		            self.parameters.linear.y = -self.speed * self.factor_x * self.integral_factor
@@ -546,7 +549,8 @@ class Interface():
 			else:
 			    self.parameters.linear.y = 0
                             self.publisher_parameters.publish( self.parameters )
-
+			
+			# Basic steering commands Yaw
                         if self.center_tracking_box_x < self.center_box.x:
   		            print "turn Left"
 			    self.goLeft = True
@@ -563,6 +567,7 @@ class Interface():
 			    self.parameters.angular.z = 0
                             self.publisher_parameters.publish( self.parameters )
 
+			# Basic steering commands Pitch
 		    	if self.center_tracking_box_y < self.center_box.y:
 		            print "go Forward"
 			    self.goForward = True
@@ -574,12 +579,12 @@ class Interface():
 			    self.goBackward = True
 			    self.integral_factor = self.orientation_y
 		            self.parameters.linear.y = - self.speed * self.factor_x * self.integral_factor
-		            self.parameters.linear.x = 2 * -self.speed * self.confidence * self.factor_y
 			    self.publisher_parameters.publish( self.parameters )
 			else:
 			    self.parameters.linear.x = 0
                             self.publisher_parameters.publish( self.parameters )	
 
+			# Basic steering commands elevator
 			if (self.returning_tracking_box.width + offset) < self.init_width or (self.returning_tracking_box.height + offset) < self.init_height:
 			    print "go Up"
 			    self.goUp = True
@@ -594,8 +599,9 @@ class Interface():
 			    self.parameters.linear.z = 0
 		            self.publisher_parameters.publish( self.parameters )
 			
-			## Correction if object is near the center_box
+			## Correction if x-location object is in the center_box
 			if self.center_tracking_box_x > self.center_box.x and self.center_tracking_box_x < (self.center_box.x + self.center_box.width):
+			    # Correction roll and yaw axe
 			    if self.strafeLeft:
 				print "Correct Right"
 				self.strafeLeft = False
@@ -610,7 +616,9 @@ class Interface():
 			    self.parameters.angular.z = 0
 			    self.publisher_parameters.publish( self.parameters )
 			
+			## Correction if x-location object is in the center_box
 			if self.center_tracking_box_y > self.center_box.y and self.center_tracking_box_y < (self.center_box.y + self.center_box.height):
+			    # Correction pitch axe
 			    if self.goForward:
 				print "correct Backward"
 				self.goForward = False
@@ -623,7 +631,8 @@ class Interface():
 				self.publisher_parameters.publish( self.parameters )
 			    self.parameters.linear.x = 0
 			    self.publisher_parameters.publish( self.parameters )
-
+			
+			# Correction altitude compared to starting altitude	
 		    	if self.altitude < self.start_altitude - 75:
 		    	    print "to Low, correcting myself"
 		    	    self.parameters.linear.z = self.speed 
@@ -635,34 +644,6 @@ class Interface():
 		else:
 		    self.noTrackTime = datetime.now() 
 
-		    
-  		    		    
-		
-
-
-
-# Small steering signals --Don't work--
-#			    if self.center_tracking_box_x < 320:
-#				print "little Left"
-#				self.parameters.linear.y = 0.05
-#   			    elif self.center_tracking_box_x > 320:
-#				print "little Right"
-#				self.parameters.linear.y = -0.05
-#			    else:
-#				self.parameters.linear.y = 0		
-#
-#			    if self.center_tracking_box_y < 230:
-#				print "little Up"
-#				self.parameters.linear.z = 0.05
-#			    elif self.center_tracking_box_y > 230:
-#				print "little Down"
-#				self.parameters.linear.z = -0.05
-#			    else:
-#				self.parameters.linear.z = 0
-#	
-#			self.publisher_parameters.publish( self.parameters )
-
-			
 					    
 
 	        for event in pygame.event.get():
